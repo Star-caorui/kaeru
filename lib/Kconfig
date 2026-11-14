@@ -300,6 +300,66 @@ menu "Linux Boot"
         config BOOT_LINUX_SCRATCH_SIZE
             hex "Scratch buffer size"
 
+        config BOOT_LINUX_SUPPORT
+            bool "Boot Linux when the boot target says so"
+            default n
+            help
+              Say Y to boot the default extlinux.conf label instead of
+              Android when 'oem boot-once' or 'oem boot-target' asks for
+              Linux. The files are loaded at late init, and LK's
+              lk_jump64() is replaced: LK still loads and prepares Android,
+              and kaeru builds Linux's tree from the one LK made and enters
+              Linux instead. Any failure boots Android.
+
+        if BOOT_LINUX_SUPPORT
+            config BOOT_LINUX_LOAD_ADDRESS
+                hex "Where the kernel, initrd and tree are loaded"
+                help
+                  RAM LK does not use between late init and the jump:
+                  clear of its kernel, dtb, scratch and ramdisk regions
+                  (kernel_addr_mb, dtb_kernel_addr_mb, scratch_addr_mb,
+                  ramdisk_addr_mb in its log). The kernel runs from here,
+                  so it has to be plain RAM for Linux too. The files are
+                  checksummed again before the jump, and Android boots if
+                  anything changed them.
+
+            config BOOT_LINUX_LOAD_SIZE
+                hex "Size of the load region"
+
+            config BOOT_LINUX_MMU_MAP_ADDRESS
+                hex "arch_mmu_map() address"
+                default 0x0
+                help
+                  LK maps only the RAM it uses, and the load region is
+                  mapped with its arch_mmu_map(paddr, vaddr, flags, size)
+                  before anything is read into it. Both start and size
+                  have to be 2 MiB aligned.
+
+                  0 finds it at boot by the "arch_mmu_map" its asserts
+                  name; set it only for an LK where that fails.
+
+            config BOOT_LINUX_JUMP64_ADDRESS
+                hex "lk_jump64() address"
+                default 0x0
+                help
+                  LK's function that logs "[LK]jump to K64" and enters the
+                  kernel through ATF. It is replaced by a veneer to kaeru.
+
+                  0 finds it at boot by the "lk_jump64" its asserts name;
+                  set it only for an LK where that fails. Either way it has
+                  to look like the start of a function (it saves LR and a
+                  bl calls it), or Linux is not booted.
+
+            config BOOT_LINUX_SMC_ID
+                hex "ATF call that enters the kernel"
+                default 0x82000115
+                help
+                  The SiP call lk_jump64() makes through ATF to enter the
+                  kernel, with the entry in r1, x0 in r2, x1 in r3 and the
+                  mode (1 for AArch64) in r4. kaeru makes the same call to
+                  enter Linux, and to boot Android when Linux cannot be.
+        endif
+
         config FASTBOOT_EXTLINUX_COMMAND
             bool "Enable 'fastboot oem extlinux'"
             default n

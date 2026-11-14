@@ -13,6 +13,9 @@ void kaeru_late_init(void) {
     OPTIONAL_INIT(framebuffer_init);
     OPTIONAL_INIT(storage_init);
     OPTIONAL_INIT(boot_target_init);
+#ifdef CONFIG_BOOT_LINUX_SUPPORT
+    linux_boot_init();
+#endif
 
     board_late_init();
 

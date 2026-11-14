@@ -26,6 +26,7 @@ lib-$(CONFIG_BOOT_TARGET_SUPPORT) += boot/target.o
 lib-$(CONFIG_EXTLINUX_SUPPORT) += boot/extlinux.o boot/linux.o crypto/sha256.o
 lib-$(CONFIG_EXTLINUX_SUPPORT) += libfdt/fdt.o libfdt/fdt_ro.o libfdt/fdt_rw.o libfdt/fdt_wip.o
 lib-$(CONFIG_EXTLINUX_SUPPORT) += tinf/tinflate.o tinf/tinfgzip.o tinf/crc32.o
+lib-$(CONFIG_BOOT_LINUX_SUPPORT) += boot/linux_boot.o boot/lk_find.o
 
 ccflags-y += -I$(srctree)/lib/libfdt
 ccflags-y += -I$(srctree)/lib/tinf

@@ -18,3 +18,7 @@ void __attribute__((weak)) sej_init(void);
 void __attribute__((weak)) storage_init(void);
 void __attribute__((weak)) framebuffer_init(void);
 void __attribute__((weak)) boot_target_init(void);
+
+// Not weak: nothing else references lib/boot/linux_boot.o, so a weak
+// reference would leave it out of the link.
+void linux_boot_init(void);
