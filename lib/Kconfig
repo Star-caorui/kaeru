@@ -416,6 +416,20 @@ menu "Third party / Miscellaneous libraries"
           This is Amazon's own BCB format, not AOSP's bootloader_message,
           so it is only useful on Amazon (Echo & friends) targets.
     
+    config EXT4_SUPPORT
+        bool "Enable read-only ext2/3/4 support"
+        default n
+        depends on STORAGE_SUPPORT || (!USE_MT_PART_API && !USE_LEGACY_PARTITION_API)
+        help
+          Say Y to build a read-only ext2/3/4 driver ported from GRUB
+          (GPLv3-or-later). It handles extents, 64bit, flex_bg, meta_bg
+          and linear directory scans (htree directories included), and
+          refuses filesystems with incompatible features it does not know.
+
+          Partitions are opened by name, through kaeru's storage library
+          when it is enabled and through the bootloader's partition_read()
+          otherwise.
+
     config BOOTLOADER_MESSAGE_SUPPORT
         bool "Enable AOSP bootloader_message support"
         depends on STORAGE_SUPPORT

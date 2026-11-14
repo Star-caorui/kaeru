@@ -20,4 +20,6 @@ lib-$(CONFIG_SEJ_SUPPORT) += security/seccfg.o
 
 lib-$(CONFIG_STORAGE_SUPPORT) += storage/storage.o storage/gpt.o
 
+lib-$(CONFIG_EXT4_SUPPORT) += fs/ext4.o fs/ext4_part.o libc/memory.o
+
 lib-$(CONFIG_BOOTLOADER_MESSAGE_SUPPORT) += bootloader_message.o
