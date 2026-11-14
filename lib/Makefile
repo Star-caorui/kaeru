@@ -23,6 +23,13 @@ lib-$(CONFIG_STORAGE_SUPPORT) += storage/storage.o storage/gpt.o
 lib-$(CONFIG_EXT4_SUPPORT) += fs/ext4.o fs/ext4_part.o libc/memory.o
 
 lib-$(CONFIG_BOOT_TARGET_SUPPORT) += boot/target.o
-lib-$(CONFIG_EXTLINUX_SUPPORT) += boot/extlinux.o
+lib-$(CONFIG_EXTLINUX_SUPPORT) += boot/extlinux.o boot/linux.o crypto/sha256.o
+lib-$(CONFIG_EXTLINUX_SUPPORT) += libfdt/fdt.o libfdt/fdt_ro.o libfdt/fdt_rw.o libfdt/fdt_wip.o
+lib-$(CONFIG_EXTLINUX_SUPPORT) += tinf/tinflate.o tinf/tinfgzip.o tinf/crc32.o
+
+ccflags-y += -I$(srctree)/lib/libfdt
+ccflags-y += -I$(srctree)/lib/tinf
+# tinf asserts its invariants; kaeru has no C library to report them.
+CFLAGS_tinflate.o += -DNDEBUG
 
 lib-$(CONFIG_BOOTLOADER_MESSAGE_SUPPORT) += bootloader_message.o

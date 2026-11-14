@@ -272,6 +272,43 @@ menu "Linux Boot"
           Say Y to build the extlinux.conf parser. It reads the subset
           U-Boot's distro boot understands, from /extlinux/extlinux.conf
           or /boot/extlinux/extlinux.conf on an ext2/3/4 partition.
+
+    if EXTLINUX_SUPPORT
+        config BOOT_LINUX_PARTITION
+            string "Partition holding extlinux.conf"
+            default "linux"
+            help
+              Used when the kaeru_linux_partition environment variable is
+              not set.
+
+        config BOOT_LINUX_FDTFILE
+            string "Devicetree name for FDTDIR"
+            default ""
+            help
+              The board's devicetree relative to an FDTDIR, the way
+              U-Boot's fdtfile variable is, e.g.
+              "mediatek/mt6833-xiaomi-gold.dtb". Empty means FDTDIR
+              entries cannot be used.
+
+        config BOOT_LINUX_SCRATCH_ADDRESS
+            hex "Scratch buffer address"
+            help
+              Memory the bootloader keeps free for loading images; on
+              MediaTek LKs this is the scratch region fastboot also
+              downloads into ("scratch_addr_mb" in the LK log).
+
+        config BOOT_LINUX_SCRATCH_SIZE
+            hex "Scratch buffer size"
+
+        config FASTBOOT_EXTLINUX_COMMAND
+            bool "Enable 'fastboot oem extlinux'"
+            default n
+            help
+              Say Y to register 'oem extlinux [partition]', which reads
+              extlinux.conf, loads the default label's kernel, initrd and
+              devicetree into the scratch buffer and reports them, without
+              booting anything.
+    endif
 endmenu
 
 menu "Spoof Support"

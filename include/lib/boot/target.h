@@ -17,6 +17,9 @@ enum boot_target {
 
 #define KAERU_ENV_BOOT_TARGET "kaeru_boot_target"
 #define KAERU_ENV_BOOT_ONCE "kaeru_boot_once"
+// The ext2/3/4 partition holding extlinux.conf; CONFIG_BOOT_LINUX_PARTITION
+// when unset.
+#define KAERU_ENV_LINUX_PARTITION "kaeru_linux_partition"
 
 // "android", "linux" or "none". Returns 0, or -1 for anything else.
 int boot_target_parse(const char* s, enum boot_target* out);
