@@ -8,7 +8,10 @@
 // decides: a pending 'oem boot-once' first (cleared before anything else,
 // so a Linux that does not come up costs one boot, not every boot), then
 // 'oem boot-target'. Only a normal boot is ever diverted; recovery,
-// fastboot, charging and factory modes go to LK untouched.
+// fastboot, charging and factory modes go to LK untouched. 'oem
+// boot-target linux' also leaves alone a slot Android has not confirmed
+// yet (see slot_allows_linux()); 'oem boot-once linux' is someone's
+// explicit choice and boots Linux there too, with a warning.
 //
 // For Linux, the load region is mapped with LK's arch_mmu_map() (LK maps
 // only the RAM it uses), the default extlinux.conf label on the Linux
@@ -24,6 +27,7 @@
 
 #include <arch/arm.h>
 #include <arch/cache.h>
+#include <lib/boot/ab.h>
 #include <lib/boot/linux.h>
 #include <lib/boot/lk_find.h>
 #include <lib/boot/target.h>
@@ -159,6 +163,43 @@ static void take_over_jump64(uint32_t addr) {
     arch_sync_cache_range(start, addr + 12 - start);
 }
 
+#ifdef CONFIG_BOOT_LINUX_AB_CHECK
+// Whether Linux may boot on this slot. A slot Android has not confirmed
+// yet (after an update, or 'fastboot --set-active') loses a try on every
+// boot until Android marks it successful, and Linux never will: booting
+// Linux there runs the tries out and rolls the update back. The slot is
+// taken as the highest priority one, as the bootloader picks it; on its
+// last try it may already show no tries left, so tries are not looked
+// at. Unreadable metadata counts as unconfirmed.
+//
+// forced is a boot-once: someone asked for Linux this time, and gets it,
+// with a warning ('oem boot-once' warns when it is set, too).
+static int slot_allows_linux(int forced) {
+    struct ab_state st;
+    const struct ab_slot* s;
+
+    if (ab_read(&st)) {
+        printf("kaeru: no valid A/B metadata in misc, booting %s\n",
+               forced ? "Linux as asked (boot-once)" : "Android");
+        return forced;
+    }
+    s = &st.slot[st.current];
+    printf("kaeru: slot %c: priority %u, tries %u, successful %u\n", 'a' + st.current,
+           (unsigned)s->priority, (unsigned)s->tries_remaining, (unsigned)s->successful_boot);
+    if (s->successful_boot)
+        return 1;
+    if (forced) {
+        printf("kaeru: slot %c not confirmed by Android, booting Linux anyway (boot-once)\n",
+               'a' + st.current);
+        video_printf(" => slot %c not confirmed, Linux anyway\n", 'a' + st.current);
+        return 1;
+    }
+    printf("kaeru: slot %c not confirmed by Android yet, booting Android\n", 'a' + st.current);
+    video_printf(" => slot not confirmed yet, Android...\n");
+    return 0;
+}
+#endif
+
 static void linux_partition(char* out, size_t n) {
     char* env = get_env(KAERU_ENV_LINUX_PARTITION);
     const char* name = env && env[0] ? env : CONFIG_BOOT_LINUX_PARTITION;
@@ -182,6 +223,11 @@ void linux_boot_init(void) {
 
     once = boot_once_get();
     t = once != BOOT_TARGET_NONE ? once : boot_target_get();
+
+#ifdef CONFIG_BOOT_LINUX_AB_CHECK
+    if (t == BOOT_TARGET_LINUX && !slot_allows_linux(once == BOOT_TARGET_LINUX))
+        return;
+#endif
 
     if (once != BOOT_TARGET_NONE) {
         if (boot_once_set(BOOT_TARGET_NONE)) {

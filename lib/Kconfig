@@ -338,6 +338,20 @@ menu "Linux Boot"
                   0 finds it at boot by the "arch_mmu_map" its asserts
                   name; set it only for an LK where that fails.
 
+            config BOOT_LINUX_AB_CHECK
+                bool "Boot Linux only on a slot Android has confirmed"
+                default y
+                help
+                  On A/B devices, read bootloader_control from misc and,
+                  for 'oem boot-target linux', boot Android instead while
+                  the slot being booted is not marked successful: each
+                  such boot uses up a try, which only Android gives back,
+                  so Linux would roll back an update. Missing or invalid
+                  metadata also means Android, so say N on devices
+                  without A/B. 'oem boot-once linux' is an explicit
+                  choice and boots Linux anyway, warning when it is set
+                  and on screen.
+
             config BOOT_LINUX_JUMP64_ADDRESS
                 hex "lk_jump64() address"
                 default 0x0
