@@ -27,6 +27,7 @@ enum extlinux_err {
     EXTLINUX_ENOLABEL = -3,  // No LABEL at all
     EXTLINUX_ENOKERNEL = -4, // The chosen label has no LINUX/KERNEL
     EXTLINUX_EBADVAL = -5,   // A value that must be a number or non-empty is not
+    EXTLINUX_ENOTFOUND = -6, // No label by the name asked for
 };
 
 struct extlinux_entry {
@@ -64,6 +65,11 @@ int extlinux_parse(const char* buf, size_t len, struct extlinux_config* cfg);
 
 // The entry to boot, or NULL with *err set (EXTLINUX_ENOKERNEL).
 const struct extlinux_entry* extlinux_default(const struct extlinux_config* cfg, int* err);
+
+// The label named name (compared exactly, as U-Boot does), or NULL with
+// *err set (EXTLINUX_ENOTFOUND, EXTLINUX_ENOKERNEL).
+const struct extlinux_entry* extlinux_find(const struct extlinux_config* cfg, const char* name,
+                                           int* err);
 
 // U-Boot's path rules: absolute paths are from the root of the filesystem
 // the config lives on, relative ones are from the config file's directory.

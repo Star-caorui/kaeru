@@ -21,6 +21,11 @@ enum boot_target {
 // when unset.
 #define KAERU_ENV_LINUX_PARTITION "kaeru_linux_partition"
 
+// A Linux boot-once may name the extlinux.conf label to boot, stored as
+// "linux:<label>" in kaeru_boot_once. Labels are at most this long:
+// fastboot commands are 64 bytes, and 'oem boot-once linux ' takes 20.
+#define BOOT_ONCE_LABEL_MAX 44
+
 // "android", "linux" or "none". Returns 0, or -1 for anything else.
 int boot_target_parse(const char* s, enum boot_target* out);
 const char* boot_target_name(enum boot_target t);
@@ -36,6 +41,14 @@ enum boot_target boot_once_get(void);
 // stick.
 int boot_target_set(enum boot_target t);
 int boot_once_set(enum boot_target t);
+
+// A Linux boot-once of the label named label; kaeru-boot-once then reads
+// "linux:<label>". Returns 0, or -1 if the write did not stick or the label
+// is longer than BOOT_ONCE_LABEL_MAX.
+int boot_once_set_label(const char* label);
+// The label a Linux boot-once names, "" if none; out holds
+// BOOT_ONCE_LABEL_MAX + 1 bytes.
+void boot_once_label(char* out);
 
 // Publishes the fastboot variables. Runs at kaeru's late init, after the
 // bootloader has loaded its environment.

@@ -35,13 +35,22 @@ struct linux_image {
 // characters, the most a fastboot INFO can carry.
 typedef void (*linux_log_t)(const char* line);
 
-// Finds extlinux.conf on the ext2/3/4 partition part, takes its default
-// label and reads the kernel, initrd and tree into [base, base + size),
-// leaving room after them for the tree to boot with and the devinfo page.
-// With require_image, anything but a raw arm64 Image is refused. Returns
-// 0, or -1 after logging why.
-int linux_load(const char* part, uint32_t base, uint32_t size, int require_image,
-               struct linux_image* img, linux_log_t log);
+// Finds extlinux.conf on the ext2/3/4 partition part, takes the label
+// named name (the default one if name is NULL or empty, or if there is no
+// such label) and reads the kernel, initrd and tree into
+// [base, base + size), leaving room after them for the tree to boot with
+// and the devinfo page. With require_image, anything but a raw arm64 Image
+// is refused. Returns 0, or -1 after logging why.
+int linux_load(const char* part, const char* name, uint32_t base, uint32_t size,
+               int require_image, struct linux_image* img, linux_log_t log);
+
+// The partition holding extlinux.conf: kaeru_linux_partition in the
+// environment, else CONFIG_BOOT_LINUX_PARTITION.
+void linux_partition(char* out, size_t n);
+
+// Whether extlinux.conf on part has a bootable label named name. Returns
+// 0, or -1 after logging why not.
+int linux_has_label(const char* part, const char* name, linux_log_t log);
 
 // A checksum over the loaded files, to tell whether anything overwrote
 // them between loading and booting.

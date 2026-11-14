@@ -15,9 +15,7 @@
 //
 
 #include <lib/boot/linux.h>
-#include <lib/boot/target.h>
 #include <lib/debug.h>
-#include <lib/environment.h>
 #include <lib/fastboot.h>
 #include <lib/string.h>
 #include <stage1/memory.h>
@@ -53,15 +51,8 @@ static void cmd_extlinux(const char* arg, void* data, unsigned sz) {
     (void)sz;
 
     next_token(arg, part, sizeof(part));
-    if (!part[0]) {
-        char* env = get_env(KAERU_ENV_LINUX_PARTITION);
-        const char* name = env && env[0] ? env : CONFIG_BOOT_LINUX_PARTITION;
-        size_t i = 0;
-
-        for (; name[i] && i < sizeof(part) - 1; i++)
-            part[i] = name[i];
-        part[i] = '\0';
-    }
+    if (!part[0])
+        linux_partition(part, sizeof(part));
 
     // Only ever write where fastboot itself downloads to.
     if ((uintptr_t)data != CONFIG_BOOT_LINUX_SCRATCH_ADDRESS) {
@@ -77,8 +68,8 @@ static void cmd_extlinux(const char* arg, void* data, unsigned sz) {
         fastboot_fail("Out of memory");
         return;
     }
-    if (linux_load(part, CONFIG_BOOT_LINUX_SCRATCH_ADDRESS, CONFIG_BOOT_LINUX_SCRATCH_SIZE, 0, img,
-                   info_line)) {
+    if (linux_load(part, NULL, CONFIG_BOOT_LINUX_SCRATCH_ADDRESS, CONFIG_BOOT_LINUX_SCRATCH_SIZE, 0,
+                   img, info_line)) {
         free(img);
         fastboot_fail("Cannot load");
         return;

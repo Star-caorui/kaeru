@@ -270,6 +270,24 @@ const struct extlinux_entry* extlinux_default(const struct extlinux_config* cfg,
     return e;
 }
 
+const struct extlinux_entry* extlinux_find(const struct extlinux_config* cfg, const char* name,
+                                           int* err) {
+    for (int i = 0; i < cfg->count; i++) {
+        const struct extlinux_entry* e = &cfg->entries[i];
+
+        if (strcmp(e->label, name))
+            continue;
+        if (e->localboot || !e->kernel[0]) {
+            *err = EXTLINUX_ENOKERNEL;
+            return NULL;
+        }
+        *err = EXTLINUX_OK;
+        return e;
+    }
+    *err = EXTLINUX_ENOTFOUND;
+    return NULL;
+}
+
 int extlinux_resolve(const char* cfg_path, const char* file, char* out, size_t out_len) {
     size_t dir_len = 0, file_len = strlen(file);
 
@@ -330,7 +348,9 @@ const char* extlinux_strerror(int err) {
         case EXTLINUX_ENOLABEL:
             return "no LABEL";
         case EXTLINUX_ENOKERNEL:
-            return "default label has no kernel";
+            return "label has no kernel";
+        case EXTLINUX_ENOTFOUND:
+            return "no such label";
         case EXTLINUX_EBADVAL:
             return "bad value";
         default:

@@ -4,7 +4,10 @@
 //
 // 'fastboot oem boot-target linux|android' sets which OS boots by default.
 // 'fastboot oem boot-once linux|android|none' overrides it for the next
-// boot only; 'none' cancels a pending override.
+// boot only; 'none' cancels a pending override. 'oem boot-once linux
+// <label>' also picks the extlinux.conf label to boot instead of the
+// default, so a new kernel can be tried once and the default comes back by
+// itself; the label has to exist when the command is given.
 //
 // Read them back with 'fastboot getvar kaeru-boot-target' and
 // 'fastboot getvar kaeru-boot-once'.
@@ -22,6 +25,9 @@
 
 #ifdef CONFIG_BOOT_LINUX_AB_CHECK
 #include <lib/boot/ab.h>
+#endif
+#ifdef CONFIG_EXTLINUX_SUPPORT
+#include <lib/boot/linux.h>
 #endif
 #include <lib/boot/target.h>
 #include <lib/debug.h>
@@ -99,8 +105,38 @@ static void warn_unconfirmed(int once, const struct ab_state* st) {
 }
 #endif
 
+#ifdef CONFIG_EXTLINUX_SUPPORT
+static void info_line(const char* line) {
+    fastboot_info(line);
+}
+#endif
+
+// Checks label for 'oem boot-once linux <label>'. Sends FAIL and returns
+// -1 if it cannot be booted.
+static int check_label(const char* label) {
+#ifdef CONFIG_EXTLINUX_SUPPORT
+    char part[40];
+
+    if (strlen(label) > BOOT_ONCE_LABEL_MAX) {
+        fastboot_fail("Label too long");
+        return -1;
+    }
+    linux_partition(part, sizeof(part));
+    if (linux_has_label(part, label, info_line)) {
+        fastboot_fail("No such label in extlinux.conf");
+        return -1;
+    }
+    return 0;
+#else
+    (void)label;
+    fastboot_fail("Labels need extlinux.conf support");
+    return -1;
+#endif
+}
+
 static void boot_target_cmd(const char* arg, int once) {
     char tok[16];
+    char label[BOOT_ONCE_LABEL_MAX + 2];
     char line[FASTBOOT_INFO_MAX + 1];
     enum boot_target t;
     const char* var = once ? "kaeru-boot-once" : "kaeru-boot-target";
@@ -109,12 +145,16 @@ static void boot_target_cmd(const char* arg, int once) {
     const struct ab_state* st = NULL;
 #endif
 
-    next_token(arg, tok, sizeof(tok));
-    if (boot_target_parse(tok, &t) || (!once && t == BOOT_TARGET_NONE)) {
-        fastboot_fail(once ? "Usage: oem boot-once linux|android|none"
+    arg = next_token(arg, tok, sizeof(tok));
+    next_token(arg, label, sizeof(label));
+    if (boot_target_parse(tok, &t) || (!once && t == BOOT_TARGET_NONE) ||
+        (label[0] && (!once || t != BOOT_TARGET_LINUX))) {
+        fastboot_fail(once ? "Usage: oem boot-once linux [label]|android|none"
                            : "Usage: oem boot-target linux|android");
         return;
     }
+    if (label[0] && check_label(label))
+        return;
 
 #ifdef CONFIG_BOOT_LINUX_AB_CHECK
     if (t == BOOT_TARGET_LINUX) {
@@ -125,12 +165,15 @@ static void boot_target_cmd(const char* arg, int once) {
     }
 #endif
 
-    if (once ? boot_once_set(t) : boot_target_set(t)) {
+    if (label[0] ? boot_once_set_label(label) : once ? boot_once_set(t) : boot_target_set(t)) {
         fastboot_fail("Failed to write the environment");
         return;
     }
 
-    npf_snprintf(line, sizeof(line), "%s: %s", var, boot_target_name(t));
+    if (label[0])
+        npf_snprintf(line, sizeof(line), "%s: linux:%s", var, label);
+    else
+        npf_snprintf(line, sizeof(line), "%s: %s", var, boot_target_name(t));
     fastboot_info(line);
 #ifdef CONFIG_BOOT_LINUX_AB_CHECK
     if (t == BOOT_TARGET_LINUX)

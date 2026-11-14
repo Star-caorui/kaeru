@@ -15,14 +15,14 @@
 //
 // For Linux, the load region is mapped with LK's arch_mmu_map() (LK maps
 // only the RAM it uses), the default extlinux.conf label on the Linux
-// partition is loaded into it while storage is up and written back from
-// the caches, and LK's lk_jump64() is taken over. LK then boots Android as
-// it always does: boot and vendor_boot, its dtbo, its own fixups, all of
-// which its asserts insist on. When it is about to enter the 64-bit
-// kernel, kaeru checks the loaded files are intact, builds the tree for
-// Linux from the one LK made (lib/boot/linux.c) and enters Linux through
-// the same ATF call LK uses. Anything that fails on the way lets Android
-// boot.
+// partition (or the one 'oem boot-once linux <label>' names) is loaded into
+// it while storage is up and written back from the caches, and LK's
+// lk_jump64() is taken over. LK then boots Android as it always does: boot
+// and vendor_boot, its dtbo, its own fixups, all of which its asserts
+// insist on. When it is about to enter the 64-bit kernel, kaeru checks the
+// loaded files are intact, builds the tree for Linux from the one LK made
+// (lib/boot/linux.c) and enters Linux through the same ATF call LK uses.
+// Anything that fails on the way lets Android boot.
 //
 
 #include <arch/arm.h>
@@ -200,21 +200,12 @@ static int slot_allows_linux(int forced) {
 }
 #endif
 
-static void linux_partition(char* out, size_t n) {
-    char* env = get_env(KAERU_ENV_LINUX_PARTITION);
-    const char* name = env && env[0] ? env : CONFIG_BOOT_LINUX_PARTITION;
-    size_t i = 0;
-
-    for (; name[i] && i < n - 1; i++)
-        out[i] = name[i];
-    out[i] = '\0';
-}
-
 void linux_boot_init(void) {
     enum boot_target t, once;
     uint32_t jump64, mmu_map;
     struct linux_image* img;
     char part[40];
+    char label[BOOT_ONCE_LABEL_MAX + 1];
     bootmode_t mode = get_bootmode();
 
     printf("kaeru: boot mode %s\n", bootmode2str(mode));
@@ -222,6 +213,7 @@ void linux_boot_init(void) {
         return;
 
     once = boot_once_get();
+    boot_once_label(label);
     t = once != BOOT_TARGET_NONE ? once : boot_target_get();
 
 #ifdef CONFIG_BOOT_LINUX_AB_CHECK
@@ -234,7 +226,8 @@ void linux_boot_init(void) {
             printf("kaeru: cannot clear kaeru_boot_once, booting Android\n");
             return;
         }
-        printf("kaeru: boot-once %s\n", boot_target_name(once));
+        printf("kaeru: boot-once %s%s%s\n", boot_target_name(once), label[0] ? " " : "",
+               label);
     }
     if (t != BOOT_TARGET_LINUX)
         return;
@@ -263,8 +256,8 @@ void linux_boot_init(void) {
         printf("kaeru: out of memory, booting Android\n");
         return;
     }
-    if (linux_load(part, CONFIG_BOOT_LINUX_LOAD_ADDRESS, CONFIG_BOOT_LINUX_LOAD_SIZE, 1, img,
-                   log_line)) {
+    if (linux_load(part, label, CONFIG_BOOT_LINUX_LOAD_ADDRESS, CONFIG_BOOT_LINUX_LOAD_SIZE, 1,
+                   img, log_line)) {
         free(img);
         printf("kaeru: cannot load Linux, booting Android\n");
         video_printf(" => cannot load Linux, Android...\n");

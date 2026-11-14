@@ -4,7 +4,8 @@
 //
 // arm64 Linux from an extlinux.conf.
 //
-// linux_load() reads the default label's files from an ext2/3/4 partition
+// linux_load() reads a label's files, the default one unless another is
+// named, from an ext2/3/4 partition
 // into one region:
 //
 //   kernel    at the first 2 MiB boundary, image_size bytes (its bss too)
@@ -53,9 +54,11 @@
 
 #include <arch/cache.h>
 #include <lib/boot/linux.h>
+#include <lib/boot/target.h>
 #include <lib/common.h>
 #include <lib/crypto/sha256.h>
 #include <lib/debug.h>
+#include <lib/environment.h>
 #include <lib/fs/ext4.h>
 #include <lib/fs/ext4_part.h>
 #include <lib/string.h>
@@ -417,13 +420,67 @@ static int load_entry(struct loader* l, const struct extlinux_entry* e, int requ
     return 0;
 }
 
-int linux_load(const char* part, uint32_t base, uint32_t size, int require_image,
-               struct linux_image* img, linux_log_t log) {
-    struct extlinux_config* cfg = NULL;
-    const struct extlinux_entry* e;
+void linux_partition(char* out, size_t n) {
+    char* env = get_env(KAERU_ENV_LINUX_PARTITION);
+    const char* name = env && env[0] ? env : CONFIG_BOOT_LINUX_PARTITION;
+    size_t i = 0;
+
+    for (; name[i] && i < n - 1; i++)
+        out[i] = name[i];
+    out[i] = '\0';
+}
+
+// Mounts part into l->fs and logs its ext4 label.
+static int mount_part(struct loader* l, const char* part) {
     struct ext4_dev dev;
-    struct loader l;
     char label[17];
+    int err;
+
+    if (ext4_part_open(part, &dev)) {
+        say(l->log, "partition %s not found", part);
+        return -1;
+    }
+    err = ext4_mount(&dev, &l->fs);
+    if (err) {
+        say(l->log, "%s: %s", part, ext4_strerror(err));
+        return -1;
+    }
+    ext4_label(l->fs, label);
+    say(l->log, "%.12s: ext4 label '%s'", part, label);
+    if (ext4_needs_recovery(l->fs))
+        say(l->log, "warning: journal not replayed, data may be stale");
+    return 0;
+}
+
+int linux_has_label(const char* part, const char* name, linux_log_t log) {
+    struct extlinux_config* cfg;
+    struct loader l;
+    int err, ret = -1;
+
+    memset(&l, 0, sizeof(l));
+    l.log = log;
+    if (mount_part(&l, part))
+        return -1;
+    cfg = malloc(sizeof(*cfg));
+    if (!cfg)
+        say(log, "out of memory");
+    else if (!read_config(&l, cfg)) {
+        if (extlinux_find(cfg, name, &err))
+            ret = 0;
+        else
+            say(log, "%.40s: %s", name, extlinux_strerror(err));
+    }
+    if (cfg)
+        free(cfg);
+    ext4_umount(l.fs);
+    return ret;
+}
+
+int linux_load(const char* part, const char* name, uint32_t base, uint32_t size,
+               int require_image, struct linux_image* img, linux_log_t log) {
+    struct extlinux_config* cfg = NULL;
+    const struct extlinux_entry* e = NULL;
+    struct loader l;
     int err, ret = -1;
 
     memset(img, 0, sizeof(*img));
@@ -436,19 +493,8 @@ int linux_load(const char* part, uint32_t base, uint32_t size, int require_image
         return -1;
     }
 
-    if (ext4_part_open(part, &dev)) {
-        say(log, "partition %s not found", part);
+    if (mount_part(&l, part))
         return -1;
-    }
-    err = ext4_mount(&dev, &l.fs);
-    if (err) {
-        say(log, "%s: %s", part, ext4_strerror(err));
-        return -1;
-    }
-    ext4_label(l.fs, label);
-    say(log, "%.12s: ext4 label '%s'", part, label);
-    if (ext4_needs_recovery(l.fs))
-        say(log, "warning: journal not replayed, data may be stale");
 
     cfg = malloc(sizeof(*cfg));
     if (!cfg) {
@@ -464,7 +510,15 @@ int linux_load(const char* part, uint32_t base, uint32_t size, int require_image
     if (cfg->unknown)
         say(log, "warning: %d unknown keyword(s) ignored", cfg->unknown);
 
-    e = extlinux_default(cfg, &err);
+    // A label asked for by name that has gone since is not worth failing
+    // the boot over: the default is what boots on every other boot.
+    if (name && name[0]) {
+        e = extlinux_find(cfg, name, &err);
+        if (!e)
+            say(log, "%.30s: %s, using the default", name, extlinux_strerror(err));
+    }
+    if (!e)
+        e = extlinux_default(cfg, &err);
     if (!e) {
         say(log, "%s", extlinux_strerror(err));
         goto out;
