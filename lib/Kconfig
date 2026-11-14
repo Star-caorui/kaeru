@@ -263,6 +263,15 @@ menu "Linux Boot"
           kaeru-boot-target' and 'fastboot getvar kaeru-boot-once'.
 
           Unset or unknown values mean android.
+
+    config EXTLINUX_SUPPORT
+        bool "Read extlinux.conf"
+        default n
+        depends on BOOT_TARGET_SUPPORT && EXT4_SUPPORT
+        help
+          Say Y to build the extlinux.conf parser. It reads the subset
+          U-Boot's distro boot understands, from /extlinux/extlinux.conf
+          or /boot/extlinux/extlinux.conf on an ext2/3/4 partition.
 endmenu
 
 menu "Spoof Support"
