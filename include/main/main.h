@@ -17,3 +17,4 @@ extern uint32_t kaeru_reloc_delta;
 void __attribute__((weak)) sej_init(void);
 void __attribute__((weak)) storage_init(void);
 void __attribute__((weak)) framebuffer_init(void);
+void __attribute__((weak)) boot_target_init(void);

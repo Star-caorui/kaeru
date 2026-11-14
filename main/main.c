@@ -12,6 +12,7 @@ uint32_t kaeru_reloc_delta;
 void kaeru_late_init(void) {
     OPTIONAL_INIT(framebuffer_init);
     OPTIONAL_INIT(storage_init);
+    OPTIONAL_INIT(boot_target_init);
 
     board_late_init();
 

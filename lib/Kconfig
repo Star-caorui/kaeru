@@ -250,6 +250,21 @@ menu "Environment Support"
     endif
 endmenu
 
+menu "Linux Boot"
+    config BOOT_TARGET_SUPPORT
+        bool "Choose between Android and Linux"
+        default n
+        depends on ENVIRONMENT_SUPPORT && FASTBOOT_STYLE_STANDARD
+        help
+          Say Y to register 'oem boot-target linux|android', which sets the
+          OS to boot by default, and 'oem boot-once linux|android|none',
+          which overrides it for the next boot only. Both are kept in the
+          bootloader's environment and read back with 'fastboot getvar
+          kaeru-boot-target' and 'fastboot getvar kaeru-boot-once'.
+
+          Unset or unknown values mean android.
+endmenu
+
 menu "Spoof Support"
     config SPOOF_SUPPORT
         bool "Enable bootloader lock state spoofing"
