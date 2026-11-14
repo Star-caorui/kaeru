@@ -149,8 +149,16 @@ int extlinux_parse(const char* buf, size_t len, struct extlinux_config* cfg) {
                 arg++;
                 arg_len--;
             }
-            if (cur && keyword_is(val, sub, "label"))
+            if (cur && keyword_is(val, sub, "label")) {
+                // Display only: a long one is cut short, at a UTF-8
+                // character boundary, rather than failing the file.
+                if (arg_len >= sizeof(cur->menu_label)) {
+                    arg_len = sizeof(cur->menu_label) - 1;
+                    while (arg_len && (arg[arg_len] & 0xc0) == 0x80)
+                        arg_len--;
+                }
                 err = set_field(cur->menu_label, sizeof(cur->menu_label), arg, arg_len);
+            }
             else if (cur && keyword_is(val, sub, "default"))
                 menu_default = (int)(cur - cfg->entries);
             // MENU TITLE, MENU BACKGROUND, ...: display only.
